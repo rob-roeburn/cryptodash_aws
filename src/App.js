@@ -84,7 +84,6 @@ export default function App() {
   const loadTickers = async e => {
     let tickers = [...tState.tickers]
     let tickerlist = []
-//    const tickresponse = await fetch(dbServer+'/api/getTickers?table=cmcCache')
     const tickresponse = await fetch(awsLambda+'/getTickers')
     const tickbody = await tickresponse.json()
     if (tickresponse.status !== 200) {
@@ -102,7 +101,6 @@ export default function App() {
     tickerName = tickbody[0].tickerName
 
     let tickerPrice = [...tState.tickerPrice.toString()]
-//    const priceresponse = await fetch(dbServer+'/api/getPrice?table=cmcCache&tickerId='+tickerId)
     const priceresponse = await fetch(awsLambda+'/getPrice/'+tickerId)
     const pricebody = await priceresponse.json()
     if (priceresponse.status !== 200) {
@@ -123,7 +121,6 @@ export default function App() {
     let portfolioRealisedPL = [...pState.portfolioRealisedPL.toString()]
     positionData = []
     let unrealisedPL = 0
-    //const response = await fetch(dbServer+'/api/getPortfolio?table=portfolios&portfolioId='+pState.portfolioId)
     const response = await fetch(awsLambda+'/getPortfolio/'+pState.portfolioId)
     const body = await response.json()
     if (response.status !== 200) {
@@ -132,7 +129,6 @@ export default function App() {
       let newData = []
       for ( let position of body.Items[0].positions) {
         let tickerPrice,positionPL = 0
-//        const priceresponse = await fetch(dbServer+'/api/getPrice?table=cmcCache&tickerId='+position.currencyId)
         const priceresponse = await fetch(awsLambda+'/getPrice/'+position.currencyId)
         const pricebody = await priceresponse.json()
         if (priceresponse.status !== 200) {
@@ -201,7 +197,6 @@ export default function App() {
     let tickerName = [...tState.tickerName]
     tickerName = tickerData[0].tickerName
     let tickerPrice = [...tState.tickerPrice.toString()]
-//    const response = await fetch(dbServer+'/api/getPrice?table=cmcCache&tickerId='+tickerId)
     const response = await fetch(awsLambda+'/getPrice/'+tickerId)
     const body = await response.json()
     if (response.status !== 200) {
@@ -225,9 +220,7 @@ export default function App() {
       postData.push({"tickerName":tState.tickerName})
       postData.push({"tickerSymbol":tState.tickerSymbol})
       postData.push({"tickerPrice":tState.tickerPrice})
-      console.log(postData)
 
-      //const response = await fetch(dbServer+'/api/postNewPosition', {
       const response = await fetch(awsLambda+'/postNewPosition', {
         method: 'POST',
         headers: {
@@ -251,7 +244,6 @@ export default function App() {
   * Async function to reset the cache file in the database based on the button value.
   */
   const updateCacheFile = async e => {
-    //    const response = await fetch(dbServer+'/api/get?command=cmcCache&file='+e.target.textContent)
     const response = await fetch(dbServer+'/api/getCMCCache?file='+e.target.textContent)
     const body = await response.json()
     if (response.status !== 200) {
@@ -271,7 +263,6 @@ export default function App() {
     if (window.confirm ("Are you sure?")) {
       let postData = []
       postData.push({"portfolioId": pState.portfolioId})
-//      const response = await fetch(dbServer+'/api/resetPortfolio', {
       const response = await fetch(awsLambda+'/resetPortfolio', {
         method: 'POST',
         headers: {
@@ -326,7 +317,6 @@ export default function App() {
       new Promise(resolve => {
         if(oldData.active === 'true') {
           setTimeout(() => {
-//            fetch(dbServer+'/api/getPrice?table=cmcCache&tickerId='+oldData.currencyId, { } )
             fetch(awsLambda+'/getPrice/'+oldData.currencyId, { } )
             .then(function(response) {
               return response.json()
@@ -337,7 +327,6 @@ export default function App() {
               postData.push({"table": "portfolios"})
               postData.push({"positionId": oldData.id})
               postData.push({"realisedPL": (currentPriceRes.Items[0].cmcCacheData.quote.USD.price-oldData.tradePrice)*oldData.position})
-//              fetch(dbServer+'/api/exitPosition', {
               fetch(awsLambda+'/exitPosition', {
                 method: 'POST',
                 headers: {
