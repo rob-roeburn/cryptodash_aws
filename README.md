@@ -1,16 +1,18 @@
 # cryptodash_aws
 
+Try it out [here](https://master.dq4n3kwf2klzf.amplifyapp.com/).
+
 ![alt text](https://github.com/rob-roeburn/cryptodash_aws/blob/master/img/hero.png "Crypto Dash")
 
 This is a small dashboard view to display the value of cryptocurrencies and record trading activity.  A portfolio view is displayed with position valuation.  Positions can be traded in and out, with a running total P&L displayed alongside the portfolio.
 
 # Design
 
-The app is single-page and uses the React framework, leveraging [Hooks](https://reactjs.org/docs/hooks-overview.html) and a single functional App component.  A local MongoDB instance is used to store currency and portfolio data.
+The app is single-page and uses the React framework, leveraging [Hooks](https://reactjs.org/docs/hooks-overview.html) and a single functional App component.  [AWS Lambdas](https://aws.amazon.com/lambda/) are deployed to allow serverless access to DynamoDB storage.  The lambda code is supplied in the main branch to allow deployment.
 
 ## App structure
 
-The app has a local API controller running on a separate Express instance, with the interface located inside a subdirectory to allow separate startup from Yarn and have the app itself be a React application.  To control this in the development environment, we use `concurrently` to start the two instances side-by-side, and `nodemon` to bring one down when the other closes.  There are several get and post functions to be leveraged by the client app.  The main folder contains only the MongoServer.js file, with client/ containing the React app itself.
+The app can be built using Yarn.  All required node modules are specified in the package.json.  The build folder can be loaded directly or a new build completed using `yarn build`.
 
 ## Price information
 
@@ -20,13 +22,9 @@ The API at [coinmarketcap](https://www.coinmarketcap.com) is used.  There are se
 
 This retrieves a JSON file.  To provide different price data, we retrieve both from the [pro coinmarketcap](https://pro.coinmarketcap.com) and the [sandbox](https://sandbox.coinmarketcap.com/).
 
-## Mongo structure
+## DynamoDB structure
 
-The Mongo database contains two collections, `cmcCache` and `portfolios`.  The cmcCache collection will be a plain copy of the .json data retrieved from coinmarketcap above.  We can load this file using MongoClient.  Using a get request with the local filename in the query string, we can load the collection with the data and use it as a cache.  We use a switch statement in the api get to allow differentiation from the other get calls we need.  Calling this url to the MongoClient port allows us to load a copy of the pro or sandbox data:
-
-`/api/get?command=cmcCache&file=coinmarketcap.json`
-
-The result in Mongo is a cached copy of the data:
+The DynamoDB database contains two collections, `cmcCache` and `portfolios`.  The cmcCache collection will be a plain copy of the .json data retrieved from coinmarketcap above.  
 
 `{
         "_id" : ObjectId("5d791fbfb9b8dc7b0b87037d"),
@@ -70,9 +68,6 @@ The result in Mongo is a cached copy of the data:
         }
 }`
 
-We also provide a cmcCall method from /api/get, which allows refresh from the live source with a call like this.  This functionality is leveraged directly from the coinmarketcap page and uses their example API key - a real key should be used to get data.
-
-`/api/get?command=cmcCall&file=coinmarketcap.json&endpoint=pro-api.coinmarketcap.com&path=/v1/cryptocurrency/listings/latest&apikey=b54bcf4d-1bca-4e8e-9a24-22ff2c3d462c`
 
 ### Portfolio structure
 
@@ -100,12 +95,12 @@ We also need a collection to store portfolio data. This should have a value for 
 
 We want to present the user with a dropdown with friendly names for the currencies, and retrieve price data from the cache.  We do this with a control in the client app, and some additional get methods.  We have getTickers to get the list of currencies, and getPrice to retrieve a price per currency ID.  Example calls:
 
-`/api/get?command=getTickers`
-`/api/get?command=getPrice&tickerId=1`
+`/getTickers`
+`/getPrice/1`
 
 At this stage, we set up a React hook by declaring both state and setter as useState.  We will always want the ticker list to be displayed to the user on page load, so we create an async function to be called on init, then use useEffect to ensure that the page load will fire it.  This is analogous to the componentDidMount function from the previous lifecycle methodology in React.
 
-Then two helper functions, one to get a price for a currency ID, and one to generate a list of options for the dropdown.  getOptions generates the dropdown list, and getPrice leverages the same api call name in MongoServer and updates the state each time the list changes.
+Then two helper functions, one to get a price for a currency ID, and one to generate a list of options for the dropdown.  getOptions generates the dropdown list, and getPrice uses the same api call name in MongoServer and updates the state each time the list changes.
 
 At this point we can load the page and see a dropdown with a currency value displayed from the cached data, and change the value to see the state updating next to the list:
 
@@ -113,19 +108,13 @@ At this point we can load the page and see a dropdown with a currency value disp
 
 ## Entering positions to a portfolio
 
-We want the selected currency to be entered into the portfolio as a position with a quantity.  To do this we provide an input field next to the currency, and add a table view.  We leverage the functionality in [Material Tables](https://material-ui.com/components/tables/) to achieve this.  We also declare a separate portfolio state and setter to allow control independently from the ticker list.  We also provide our first post function in the MongoServer API : `/api/post?command=newPosition`.  We collect the required data, encapsulate it to JSON, and send it to the Mongo interface to be added to the portfolio collection.  The data will display using the cryptocurrency name and symbol, but uses the internal ID for storage, as these are not liable to change.
+We want the selected currency to be entered into the portfolio as a position with a quantity.  To do this we provide an input field next to the currency, and add a table view.  We deploy the functionality in [Material Tables](https://material-ui.com/components/tables/) to achieve this.  We also declare a separate portfolio state and setter to allow control independently from the ticker list.  A post lambda function is used to enter a new position : `/newPosition`.  We collect the required data, encapsulate it to JSON, and send it to the lambda to be added to the portfolio collection.  The data will display using the cryptocurrency name and symbol, but uses the internal ID for storage, as these are not liable to change.
 
 ![alt text](https://github.com/rob-roeburn/cryptodash_aws/blob/master/img/portfolioview.png "Portfolio View")
 
-## Calculating P&L
-
-To avoid re-querying the coinmarketcap api repeatedly, we can reload from one of our two cache files.  One is from the sandbox, one from the production environment.  The changing prices will allow us to calculate P&L.  We have system controls at the base of the file with two buttons to provide the ability to re-cache the data on the fly.  We have another async helper function updateCacheFile to receive the click event from the buttons and route to the cmcCache API call we created earlier.
-
-![alt text](https://github.com/rob-roeburn/cryptodash_aws/blob/master/img/cachereload.png "P&L Calculated")
-
 ## Realising P&L
 
-We need to be able to exit a position to differentiate between realised and unrealised P&L.  We can leverage the materialTable control which precludes us from needing to associate additional buttons to each row.  MaterialTable has an editable parameter onRowDelete, which we can use to call our function to exit the position.  At this time, we also re-query the current price for the currency, to calculate realised P&L and record it into the portfolio.  All this is sent to a postable exitPosition function in the MongoClient instance.
+We need to be able to exit a position to differentiate between realised and unrealised P&L.  We can leverage the materialTable control which precludes us from needing to associate additional buttons to each row.  MaterialTable has an editable parameter onRowDelete, which we can use to call our function to exit the position.  At this time, we also re-query the current price for the currency, to calculate realised P&L and record it into the portfolio.  All this is sent to a postable exitPosition lambda function.
 
 ![alt text](https://github.com/rob-roeburn/cryptodash_aws/blob/master/img/exitposition.png "Out of Position")
 
@@ -136,8 +125,6 @@ At this point we should also display the ongoing realised and unrealised P&L agg
 ## Resetting the portfolio
 
 The portfolio keeps a record of closed positions, so to allow the view to be kept neat, we provide a function to zero all activity and restore to a clean starting state.  This is added under the system control section.  Another async helper function is used to route the request to the resetPortfolio post handler in the API.
-
-
 
 ## Built With
 
