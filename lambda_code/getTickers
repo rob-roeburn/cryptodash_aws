@@ -1,0 +1,31 @@
+const AWS = require('aws-sdk');
+
+AWS.config.update({
+  region: 'eu-west-1',
+  endpoint: 'dynamodb.eu-west-1.amazonaws.com',
+  accessKeyId: '##REPLACE_WITH_ACCESS_KEY##',
+  secretAccessKey: '##REPLACE_WITH_SECRET_KEY##'
+})
+
+const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
+
+exports.handler = function(event, context, callback){
+  const params = {
+    TableName: 'cmcCache',
+    ProjectionExpression: "tickerId, tickerName, tickerSymbol"
+  };
+
+  const scanObjectPromise = docClient.scan(params).promise();
+  scanObjectPromise.then((data) => {
+    let list=data.Items;
+    list.sort((a, b) => (a.tickerId > b.tickerId) ? 1 : -1);
+    const response = {
+        statusCode: 200,
+        headers: {"Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify(list),
+    };
+    return callback(null, response);
+  }).catch((err) => {
+    return callback(err, null);
+  });
+}

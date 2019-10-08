@@ -1,0 +1,49 @@
+const AWS = require('aws-sdk');
+
+AWS.config.update({
+  region: 'eu-west-1',
+  endpoint: 'dynamodb.eu-west-1.amazonaws.com',
+  accessKeyId: '##REPLACE_WITH_ACCESS_KEY##',
+  secretAccessKey: '##REPLACE_WITH_SECRET_KEY##'
+});
+
+const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
+
+exports.handler = function(event, context, callback){
+  const postBody=JSON.parse(event.body);
+  let params = {
+    TableName: 'portfolios',
+    FilterExpression : 'portfolioId = :pf_id',
+    ExpressionAttributeValues : { ':pf_id' : parseInt( postBody.post[0].portfolioId) }
+  };
+  const scanObjectPromise = docClient.scan(params).promise();
+  scanObjectPromise.then((data) => {
+    const currentPositions = data.Items[0].positions;
+    for(let i=0; i<currentPositions.length; i++) {
+      if(currentPositions[i]["_id"]==postBody.post[2].positionId) {
+        currentPositions[i]["active"]=false;
+      }
+    }
+    let totalRealisedPL = data.Items[0].realisedPL+postBody.post[3].realisedPL;
+    let exitparams = {
+      TableName:'portfolios',
+      Key:{ 'portfolioId': parseInt(postBody.post[0].portfolioId) },
+      UpdateExpression: 'set positions = :positions, realisedPL = :realisedPL',
+      ExpressionAttributeValues:{ ':positions':currentPositions, ':realisedPL': totalRealisedPL },
+      ReturnValues:'UPDATED_NEW'
+    }
+    docClient.update(exitparams, function(err, data) {
+      if (err) {
+        console.log(err);
+      } else {
+        const response = {
+          statusCode: 200,
+          headers: {"Access-Control-Allow-Origin": "*" }
+        };
+        return callback(null, response);
+      }
+   });
+  }).catch((err) => {
+    return callback(err, null);
+  });
+};

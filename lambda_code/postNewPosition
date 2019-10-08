@@ -1,0 +1,58 @@
+const AWS = require('aws-sdk');
+
+AWS.config.update({
+  region: 'eu-west-1',
+  endpoint: 'dynamodb.eu-west-1.amazonaws.com',
+  accessKeyId: '##REPLACE_WITH_ACCESS_KEY##',
+  secretAccessKey: '##REPLACE_WITH_SECRET_KEY##'
+});
+
+const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
+
+function genGuid4() {
+  return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+}
+
+exports.handler = function(event, context, callback){
+  const postBody=JSON.parse(event.body)
+  let params = {
+    TableName: 'portfolios',
+    FilterExpression : 'portfolioId = :pf_id',
+    ExpressionAttributeValues : { ':pf_id' : parseInt(  postBody.post[0].portfolioId) }
+  };
+  const scanObjectPromise = docClient.scan(params).promise();
+  scanObjectPromise.then((data) => {
+    const currentPositions = data.Items[0].positions;
+    currentPositions.push({
+      _id : (genGuid4() + genGuid4() + "-" + genGuid4() + "-4" + genGuid4().substr(0,3) + "-" + genGuid4() + "-" + genGuid4() + genGuid4() + genGuid4()).toLowerCase(),
+      DateTime : new Date(postBody.post[1].tradeDate).getTime(),
+      positionQty : postBody.post[2].positionQty,
+      currencyId : postBody.post[3].tickerId,
+      name : postBody.post[4].tickerName,
+      symbol : postBody.post[5].tickerSymbol,
+      priceAtTrade : postBody.post[6].tickerPrice,
+      active : true,
+      PL : 0
+    });
+    let newparams = {
+      TableName:'portfolios',
+      Key:{ 'portfolioId': parseInt(postBody.post[0].portfolioId) },
+      UpdateExpression: 'set positions = :positions',
+      ExpressionAttributeValues:{ ':positions':currentPositions },
+      ReturnValues:'UPDATED_NEW'
+    };
+    docClient.update(newparams, function(err, data) {
+      if (err) {
+        console.log(err);
+      } else {
+        const response = {
+          statusCode: 200,
+          headers: {"Access-Control-Allow-Origin": "*" }
+        };
+        return callback(null, response);
+      }
+   });
+  }).catch((err) => {
+    return callback(err, null);
+  });
+};

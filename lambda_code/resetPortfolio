@@ -1,0 +1,35 @@
+const AWS = require('aws-sdk');
+
+AWS.config.update({
+  region: 'eu-west-1',
+  endpoint: 'dynamodb.eu-west-1.amazonaws.com',
+  accessKeyId: '##REPLACE_WITH_ACCESS_KEY##',
+  secretAccessKey: '##REPLACE_WITH_SECRET_KEY##'
+});
+
+const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
+
+function genGuid4() {
+  return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+}
+
+exports.handler = function(event, context, callback){
+  const postBody=JSON.parse(event.body)
+  const params = {
+    TableName:'portfolios',
+    Key:{ 'portfolioId': postBody.post[0].portfolioId },
+    UpdateExpression: 'set positions = :positions, realisedPL = :realisedPL',
+    ExpressionAttributeValues:{ ':positions':[], ':realisedPL': 0 },
+    ReturnValues:'UPDATED_NEW'
+  };
+  const updateObjectPromise = docClient.update(params).promise();
+  updateObjectPromise.then((data) => {
+    const response = {
+        statusCode: 200,
+        headers: {"Access-Control-Allow-Origin": "*" },
+    };
+    return callback(null, response);
+  }).catch((err) => {
+    return callback(err, null);
+  });
+};
