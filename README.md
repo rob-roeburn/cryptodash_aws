@@ -1,6 +1,4 @@
-# cryptodash_aws
-
-Try it out [here](https://master.dq4n3kwf2klzf.amplifyapp.com/).
+# CryptoDash
 
 ![alt text](https://github.com/rob-roeburn/cryptodash_aws/blob/master/img/hero.png "Crypto Dash")
 
