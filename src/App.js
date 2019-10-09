@@ -29,7 +29,7 @@ export default function App() {
   const controller = new AbortController()
 
   // leave dbServer blank to default to send API calls to same endpoint as site
-  const dbServer = ""
+  //const dbServer = ""
   // Set dbServer to location of deployed AWS and Lambda solution
   const awsLambda = "https://ivegwjoas2.execute-api.eu-west-1.amazonaws.com/prod"
 
@@ -245,8 +245,8 @@ export default function App() {
   * Async function to reset the cache file in the database based on the button value.
   */
   const updateCacheFile = async e => {
-    const response = await fetch(dbServer+'/api/getCMCCache?file='+e.target.textContent)
-    const body = await response.json()
+    const response = await fetch(awsLambda+'/updateCache?file='+e.target.textContent)
+    const body = await response
     if (response.status !== 200) {
       throw Error(body.message)
     } else {

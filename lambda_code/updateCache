@@ -1,0 +1,45 @@
+const AWS = require('aws-sdk');
+
+AWS.config.update({
+  region: 'eu-west-1',
+  endpoint: 'dynamodb.eu-west-1.amazonaws.com',
+  accessKeyId: '##REPLACE_WITH_ACCESS_KEY##',
+  secretAccessKey: '##REPLACE_WITH_SECRET_KEY##'
+});
+
+const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
+
+exports.handler = function(event, context, callback){
+  const priceObj={"pro.coinmarketcap.json":"10334.2147925","coinmarketcap.json":"9558.55163723"};
+
+  let params = {
+    TableName: 'cmcCache',
+    FilterExpression : 'tickerId = :tickerId',
+    ExpressionAttributeValues : { ':tickerId' : parseInt( 1 ) }
+  };
+  const scanObjectPromise = docClient.scan(params).promise();
+  scanObjectPromise.then((data) => {
+    const currentCache = data.Items[0].cmcCacheData;
+    currentCache.quote.USD.price= priceObj[event['queryStringParameters']['file']];
+    let newparams = {
+      TableName:'cmcCache',
+      Key:{ 'tickerId': parseInt(1) },
+      UpdateExpression: 'set cmcCacheData = :cmcCacheData',
+      ExpressionAttributeValues:{ ':cmcCacheData':currentCache },
+      ReturnValues:'UPDATED_NEW'
+    };
+    docClient.update(newparams, function(err, data) {
+      if (err) {
+        console.log(err);
+      } else {
+        const response = {
+          statusCode: 200,
+          headers: {"Access-Control-Allow-Origin": "*" },
+        };
+        return callback(null, response);
+      }
+   });
+  }).catch((err) => {
+    return callback(err, null);
+  });
+};
