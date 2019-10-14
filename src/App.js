@@ -31,7 +31,7 @@ export default function App() {
   // leave dbServer blank to default to send API calls to same endpoint as site
   //const dbServer = ""
   // Set dbServer to location of deployed AWS and Lambda solution
-  const awsLambda = "https://ivegwjoas2.execute-api.eu-west-1.amazonaws.com/prod"
+  const awsLambda = "https://pr2zg9d0r2.execute-api.eu-west-1.amazonaws.com/prod"
 
   const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }
 
@@ -85,29 +85,29 @@ export default function App() {
   const loadTickers = async e => {
     let tickers = [...tState.tickers]
     let tickerlist = []
-    const tickresponse = await fetch(awsLambda+'/getTickers')
-    const tickbody = await tickresponse.json()
-    if (tickresponse.status !== 200) {
-      throw Error(tickbody.message)
+    const getTickers = await fetch(awsLambda+'/getTickers')
+    const tickerData = await getTickers.json()
+    if (getTickers.status !== 200) {
+      throw Error(tickerData.message)
     }
-    for (let ticker of tickbody) {
+    for (let ticker of tickerData.body) {
       tickerlist.push(ticker)
     }
+    tickerlist = JSON.parse(tickerData.body)
     tickers=tickerlist
     let tickerId = [...tState.tickerId]
-    tickerId=tickbody[0].tickerId.toString()
+    tickerId=tickerlist[0].tickerId.toString()
     let tickerSymbol = [...tState.tickerSymbol]
-    tickerSymbol = tickbody[0].tickerSymbol
+    tickerSymbol=tickerlist[0].tickerSymbol
     let tickerName = [...tState.tickerName]
-    tickerName = tickbody[0].tickerName
-
+    tickerName=tickerlist[0].tickerName
     let tickerPrice = [...tState.tickerPrice.toString()]
-    const priceresponse = await fetch(awsLambda+'/getPrice/'+tickerId)
+    const priceresponse = await fetch(awsLambda+'/getPrice/'+parseInt(tickerId))
     const pricebody = await priceresponse.json()
     if (priceresponse.status !== 200) {
       throw Error(pricebody.message)
     } else {
-      tickerPrice = pricebody.Items[0].cmcCacheData.quote[currency].price.toString()
+      tickerPrice = pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
       setTState({ ...tState, tickers, tickerPrice, tickerId, tickerSymbol, tickerName })
     }
   }
@@ -123,19 +123,19 @@ export default function App() {
     positionData = []
     let unrealisedPL = 0
     const response = await fetch(awsLambda+'/getPortfolio/'+pState.portfolioId)
-    const body = await response.json()
+    const portfolioData = await response.json()
     if (response.status !== 200) {
-      throw Error(body.message)
+      throw Error(portfolioData.message)
     } else {
       let newData = []
-      for ( let position of body.Items[0].positions) {
+      for ( let position of portfolioData.body.Items[0].positions) {
         let tickerPrice,positionPL = 0
         const priceresponse = await fetch(awsLambda+'/getPrice/'+position.currencyId)
         const pricebody = await priceresponse.json()
         if (priceresponse.status !== 200) {
           throw Error(pricebody.message)
         } else {
-          tickerPrice=pricebody.Items[0].cmcCacheData.quote[currency].price.toString()
+          tickerPrice=pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
           // Only aggregate P&L for active positions
           if(position.active) {
             // Calculate P&L - current price - price at trade * position qty
@@ -145,7 +145,7 @@ export default function App() {
           // Push each position up to the newData array
           newData.push({
             id: position._id,
-            portfolioId: body.Items[0].portfolioId,
+            portfolioId: pState.portfolioId,
             tradetime: new Date(position.DateTime).toLocaleTimeString("en-GB" , dateOptions ),
             currencyId: position.currencyId,
             name: position.name,
@@ -160,7 +160,7 @@ export default function App() {
       // Set newData into positionData state for setting
       positionData = newData
       portfolioUnrealisedPL = unrealisedPL
-      portfolioRealisedPL = body.Items[0].realisedPL
+      portfolioRealisedPL = portfolioData.body.Items[0].realisedPL
       setPState({ ...pState, positionData, portfolioUnrealisedPL, portfolioRealisedPL})
     }
   }
@@ -198,12 +198,13 @@ export default function App() {
     let tickerName = [...tState.tickerName]
     tickerName = tickerData[0].tickerName
     let tickerPrice = [...tState.tickerPrice.toString()]
-    const response = await fetch(awsLambda+'/getPrice/'+tickerId)
-    const body = await response.json()
-    if (response.status !== 200) {
-      throw Error(body.message)
+
+    const priceresponse = await fetch(awsLambda+'/getPrice/'+parseInt(tickerId))
+    const pricebody = await priceresponse.json()
+    if (priceresponse.status !== 200) {
+      throw Error(pricebody.message)
     } else {
-      tickerPrice = (body.Items[0].cmcCacheData.quote[currency].price)
+      tickerPrice = pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
       setTState({ ...tState, tickerId, tickerPrice,tickerName, tickerSymbol })
     }
   }
@@ -327,7 +328,7 @@ export default function App() {
               postData.push({"portfolioId": oldData.portfolioId})
               postData.push({"table": "portfolios"})
               postData.push({"positionId": oldData.id})
-              postData.push({"realisedPL": (currentPriceRes.Items[0].cmcCacheData.quote.USD.price-oldData.tradePrice)*oldData.position})
+              postData.push({"realisedPL": (currentPriceRes.body.Items[0].cmcCacheData.quote.USD.price-oldData.tradePrice)*oldData.position})
               fetch(awsLambda+'/exitPosition', {
                 method: 'POST',
                 headers: {

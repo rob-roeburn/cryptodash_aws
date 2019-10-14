@@ -10,28 +10,27 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
 
 exports.handler = function(event, context, callback){
-  const postBody=JSON.parse(event.body);
   let params = {
     TableName: 'portfolios',
     FilterExpression : 'portfolioId = :pf_id',
-    ExpressionAttributeValues : { ':pf_id' : parseInt( postBody.post[0].portfolioId) }
+    ExpressionAttributeValues : { ':pf_id' : parseInt(event.post[0].portfolioId, 10) }
   };
   const scanObjectPromise = docClient.scan(params).promise();
   scanObjectPromise.then((data) => {
     const currentPositions = data.Items[0].positions;
     for(let i=0; i<currentPositions.length; i++) {
-      if(currentPositions[i]["_id"]==postBody.post[2].positionId) {
+      if(currentPositions[i]["_id"]==event.post[2].positionId) {
         currentPositions[i]["active"]=false;
       }
     }
-    let totalRealisedPL = data.Items[0].realisedPL+postBody.post[3].realisedPL;
+    let totalRealisedPL = data.Items[0].realisedPL+event.post[3].realisedPL;
     let exitparams = {
       TableName:'portfolios',
-      Key:{ 'portfolioId': parseInt(postBody.post[0].portfolioId) },
+      Key:{ 'portfolioId': parseInt(event.post[0].portfolioId, 10) },
       UpdateExpression: 'set positions = :positions, realisedPL = :realisedPL',
       ExpressionAttributeValues:{ ':positions':currentPositions, ':realisedPL': totalRealisedPL },
       ReturnValues:'UPDATED_NEW'
-    }
+    };
     docClient.update(exitparams, function(err, data) {
       if (err) {
         console.log(err);

@@ -14,19 +14,19 @@ function genGuid4() {
 }
 
 exports.handler = function(event, context, callback){
-  const postBody=JSON.parse(event.body)
   const params = {
     TableName:'portfolios',
-    Key:{ 'portfolioId': postBody.post[0].portfolioId },
+    Key:{ 'portfolioId': parseInt(event.post[0].portfolioId,10) },
     UpdateExpression: 'set positions = :positions, realisedPL = :realisedPL',
     ExpressionAttributeValues:{ ':positions':[], ':realisedPL': 0 },
     ReturnValues:'UPDATED_NEW'
   };
+
   const updateObjectPromise = docClient.update(params).promise();
   updateObjectPromise.then((data) => {
     const response = {
         statusCode: 200,
-        headers: {"Access-Control-Allow-Origin": "*" },
+        headers: {"Access-Control-Allow-Origin": "*" }
     };
     return callback(null, response);
   }).catch((err) => {

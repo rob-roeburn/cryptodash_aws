@@ -14,29 +14,28 @@ function genGuid4() {
 }
 
 exports.handler = function(event, context, callback){
-  const postBody=JSON.parse(event.body)
   let params = {
     TableName: 'portfolios',
     FilterExpression : 'portfolioId = :pf_id',
-    ExpressionAttributeValues : { ':pf_id' : parseInt(  postBody.post[0].portfolioId) }
+    ExpressionAttributeValues : { ':pf_id' : parseInt(event.post[0].portfolioId, 10) }
   };
   const scanObjectPromise = docClient.scan(params).promise();
   scanObjectPromise.then((data) => {
     const currentPositions = data.Items[0].positions;
     currentPositions.push({
       _id : (genGuid4() + genGuid4() + "-" + genGuid4() + "-4" + genGuid4().substr(0,3) + "-" + genGuid4() + "-" + genGuid4() + genGuid4() + genGuid4()).toLowerCase(),
-      DateTime : new Date(postBody.post[1].tradeDate).getTime(),
-      positionQty : postBody.post[2].positionQty,
-      currencyId : postBody.post[3].tickerId,
-      name : postBody.post[4].tickerName,
-      symbol : postBody.post[5].tickerSymbol,
-      priceAtTrade : postBody.post[6].tickerPrice,
+      DateTime : new Date(event.post[1].tradeDate).getTime(),
+      positionQty : event.post[2].positionQty,
+      currencyId : event.post[3].tickerId,
+      name : event.post[4].tickerName,
+      symbol : event.post[5].tickerSymbol,
+      priceAtTrade : event.post[6].tickerPrice,
       active : true,
       PL : 0
     });
     let newparams = {
       TableName:'portfolios',
-      Key:{ 'portfolioId': parseInt(postBody.post[0].portfolioId) },
+      Key:{ 'portfolioId': parseInt(event.post[0].portfolioId, 10) },
       UpdateExpression: 'set positions = :positions',
       ExpressionAttributeValues:{ ':positions':currentPositions },
       ReturnValues:'UPDATED_NEW'
