@@ -30,8 +30,11 @@ export default function App() {
 
   // leave dbServer blank to default to send API calls to same endpoint as site
   //const dbServer = ""
-  // Set dbServer to location of deployed AWS and Lambda solution
-  const awsLambda = "https://pr2zg9d0r2.execute-api.eu-west-1.amazonaws.com/prod"
+  // Set dbServer to location of deployed AWS and Lambda solution - Javascript
+  //const awsLambda = "https://pr2zg9d0r2.execute-api.eu-west-1.amazonaws.com/prod"
+  // Set dbServer to location of deployed AWS and Lambda solution - Python
+  const awsLambda = "https://ratossrau3.execute-api.eu-west-1.amazonaws.com/prod"
+
 
   const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }
 
@@ -90,13 +93,16 @@ export default function App() {
     if (getTickers.status !== 200) {
       throw Error(tickerData.message)
     }
-    for (let ticker of tickerData.body) {
-      tickerlist.push(ticker)
+    for (let ticker of JSON.parse(tickerData.body).Items) {
+      let thisObj = { }
+      thisObj["tickerId"]=parseInt(ticker.tickerId.N)
+      thisObj["tickerName"]=ticker.tickerName.S
+      thisObj["tickerSymbol"]=ticker.tickerSymbol.S
+      tickerlist.push(thisObj)
     }
-    tickerlist = JSON.parse(tickerData.body)
     tickers=tickerlist
     let tickerId = [...tState.tickerId]
-    tickerId=tickerlist[0].tickerId.toString()
+    tickerId=tickerlist[0].tickerId
     let tickerSymbol = [...tState.tickerSymbol]
     tickerSymbol=tickerlist[0].tickerSymbol
     let tickerName = [...tState.tickerName]
@@ -107,7 +113,7 @@ export default function App() {
     if (priceresponse.status !== 200) {
       throw Error(pricebody.message)
     } else {
-      tickerPrice = pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
+      tickerPrice = pricebody.Item.cmcCacheData.M.quote.M[currency].M.price.N
       setTState({ ...tState, tickers, tickerPrice, tickerId, tickerSymbol, tickerName })
     }
   }
@@ -128,39 +134,42 @@ export default function App() {
       throw Error(portfolioData.message)
     } else {
       let newData = []
-      for ( let position of portfolioData.body.Items[0].positions) {
+      if (typeof(portfolioData.Item.positions.L)!=='undefined') {
+      for ( let position of portfolioData.Item.positions.L) {
         let tickerPrice,positionPL = 0
-        const priceresponse = await fetch(awsLambda+'/getPrice/'+position.currencyId)
+        const priceresponse = await fetch(awsLambda+'/getPrice/'+position.M.currencyId.S)
         const pricebody = await priceresponse.json()
         if (priceresponse.status !== 200) {
           throw Error(pricebody.message)
         } else {
-          tickerPrice=pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
+          tickerPrice = pricebody.Item.cmcCacheData.M.quote.M[currency].M.price.N
           // Only aggregate P&L for active positions
-          if(position.active) {
+          if(position.M.active.BOOL) {
             // Calculate P&L - current price - price at trade * position qty
-            unrealisedPL = unrealisedPL+(tickerPrice-position.priceAtTrade)*position.positionQty
-            positionPL = (tickerPrice-position.priceAtTrade)*position.positionQty
+            unrealisedPL = unrealisedPL+(tickerPrice-position.M.priceAtTrade.S)*position.M.positionQty.S
+            positionPL = (tickerPrice-position.M.priceAtTrade.S)*position.M.positionQty.S
           }
           // Push each position up to the newData array
           newData.push({
-            id: position._id,
+            id: position.M._id.S,
             portfolioId: pState.portfolioId,
-            tradetime: new Date(position.DateTime).toLocaleTimeString("en-GB" , dateOptions ),
-            currencyId: position.currencyId,
-            name: position.name,
-            symbol: position.symbol,
-            position: position.positionQty,
-            tradePrice: (position.priceAtTrade*erState.selectedExchangeRate[0].rate),
-            active: position.active.toString(),
+            tradetime: new Date(parseInt(position.M.DateTime.N)).toLocaleTimeString("en-GB" , dateOptions ),
+            currencyId: position.M.currencyId.S,
+            name: position.M.name.S,
+            symbol: position.M.symbol.S,
+            position: position.M.positionQty.S,
+            tradePrice: (position.M.priceAtTrade.S)*erState.selectedExchangeRate[0].rate,
+            active: position.M.active.BOOL.toString(),
             pl:(positionPL*erState.selectedExchangeRate[0].rate).toFixed(pState.precision)
           })
         }
       }
+      }
       // Set newData into positionData state for setting
       positionData = newData
+      console.log(portfolioData.Item.realisedPL)
       portfolioUnrealisedPL = unrealisedPL
-      portfolioRealisedPL = portfolioData.body.Items[0].realisedPL
+      portfolioRealisedPL = portfolioData.Item.realisedPL.N
       setPState({ ...pState, positionData, portfolioUnrealisedPL, portfolioRealisedPL})
     }
   }
@@ -190,7 +199,7 @@ export default function App() {
   * Async function to retrieve price data for a ticker defined by the CMC ID.
   */
   const getPrice = async e => {
-    let tickerId = [...tState.tickerId]
+    let tickerId = [...tState.tickerId.toString()]
     tickerId = e.target.value
     let tickerData = searchObject(tState.tickers,tickerId,"tickerId")
     let tickerSymbol = [...tState.tickerSymbol]
@@ -204,7 +213,7 @@ export default function App() {
     if (priceresponse.status !== 200) {
       throw Error(pricebody.message)
     } else {
-      tickerPrice = pricebody.body.Items[0].cmcCacheData.quote[currency].price.toString()
+      tickerPrice = pricebody.Item.cmcCacheData.M.quote.M[currency].M.price.N.toString()
       setTState({ ...tState, tickerId, tickerPrice,tickerName, tickerSymbol })
     }
   }
@@ -328,7 +337,7 @@ export default function App() {
               postData.push({"portfolioId": oldData.portfolioId})
               postData.push({"table": "portfolios"})
               postData.push({"positionId": oldData.id})
-              postData.push({"realisedPL": (currentPriceRes.body.Items[0].cmcCacheData.quote.USD.price-oldData.tradePrice)*oldData.position})
+              postData.push({"realisedPL": (currentPriceRes.Item.cmcCacheData.M.quote.M[currency].M.price.N-oldData.tradePrice)*oldData.position})
               fetch(awsLambda+'/exitPosition', {
                 method: 'POST',
                 headers: {
