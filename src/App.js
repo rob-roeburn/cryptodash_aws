@@ -101,7 +101,7 @@ export default function App() {
       tickerlist.push(thisObj)
     }
     tickers=tickerlist
-    let tickerId = [...tState.tickerId]
+    let tickerId = [...tState.tickerId.toString()]
     tickerId=tickerlist[0].tickerId
     let tickerSymbol = [...tState.tickerSymbol]
     tickerSymbol=tickerlist[0].tickerSymbol
@@ -167,7 +167,7 @@ export default function App() {
       }
       // Set newData into positionData state for setting
       positionData = newData
-      console.log(portfolioData.Item.realisedPL)
+      //console.log(portfolioData.Item.realisedPL)
       portfolioUnrealisedPL = unrealisedPL
       portfolioRealisedPL = portfolioData.Item.realisedPL.N
       setPState({ ...pState, positionData, portfolioUnrealisedPL, portfolioRealisedPL})
@@ -255,7 +255,7 @@ export default function App() {
   * Async function to reset the cache file in the database based on the button value.
   */
   const updateCacheFile = async e => {
-    const response = await fetch(awsLambda+'/updateCache?file='+e.target.textContent)
+    const response = await fetch(awsLambda+'/updateCache')
     const body = await response
     if (response.status !== 200) {
       throw Error(body.message)
@@ -370,8 +370,7 @@ export default function App() {
     <tr><td>Position quantity</td><td><input id='positionQty' type='text' /></td></tr>
     <tr><td></td><td><Button variant="contained" color="primary" onClick={enterTrade}>Trade</Button></td></tr>
     <tr><td><h3>System Control</h3></td></tr>
-    <tr><td>Reload cache from sandbox</td><td><Button variant="contained" color="primary" onClick={updateCacheFile}>coinmarketcap.json</Button></td></tr>
-    <tr><td>Reload cache from pro</td><td><Button variant="contained" color="primary" onClick={updateCacheFile}>pro.coinmarketcap.json</Button></td></tr>
+    <tr><td>Reload cache</td><td><Button variant="contained" color="primary" onClick={updateCacheFile}>Fluctuate prices +/-5%</Button></td></tr>
     <tr><td>Reset portfolio</td><td><Button variant="contained" color="primary" onClick={resetPortfolio}>Zero positions</Button></td></tr>
     <tr><td>Currency to view (USD={erState.selectedExchangeRate[0].rate})</td><td><select onChange={updateExchangeRate}>{getExchangeRates}</select></td></tr>
     </tbody>

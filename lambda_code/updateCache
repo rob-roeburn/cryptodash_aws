@@ -10,22 +10,20 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient({region: 'eu-west-1'});
 
 exports.handler = function(event, context, callback){
-  const priceObj={"pro.coinmarketcap.json":"10334.2147925","coinmarketcap.json":"9558.55163723"};
-
-  let params = {
+  const params = {
     TableName: 'cmcCache',
-    FilterExpression : 'tickerId = :tickerId',
-    ExpressionAttributeValues : { ':tickerId' : parseInt( 1 ) }
+    ProjectionExpression: "tickerId, tickerName, tickerSymbol, cmcCacheData"
   };
   const scanObjectPromise = docClient.scan(params).promise();
   scanObjectPromise.then((data) => {
-    const currentCache = data.Items[0].cmcCacheData;
-    currentCache.quote.USD.price= priceObj[event['queryStringParameters']['file']];
+    let list=data.Items;
+    list.sort((a, b) => (a.tickerId > b.tickerId) ? 1 : -1);
+    data.Items[0].cmcCacheData.quote.USD.price=(data.Items[0].cmcCacheData.quote.USD.price)*(1-(-0.00625+(Math.random()/100)*1.25));
     let newparams = {
       TableName:'cmcCache',
-      Key:{ 'tickerId': parseInt(1) },
+      Key:{ 'tickerId': parseInt(data.Items[0].tickerId, 10) },
       UpdateExpression: 'set cmcCacheData = :cmcCacheData',
-      ExpressionAttributeValues:{ ':cmcCacheData':currentCache },
+      ExpressionAttributeValues:{ ':cmcCacheData':data.Items[0].cmcCacheData },
       ReturnValues:'UPDATED_NEW'
     };
     docClient.update(newparams, function(err, data) {
@@ -34,12 +32,17 @@ exports.handler = function(event, context, callback){
       } else {
         const response = {
           statusCode: 200,
-          headers: {"Access-Control-Allow-Origin": "*" },
+          headers: {"Access-Control-Allow-Origin": "*" }
         };
-        return callback(null, response);
+        return callback("456");
       }
-   });
+    });
   }).catch((err) => {
-    return callback(err, null);
+    return callback(err);
   });
-};
+  const response = {
+    statusCode: 200,
+    headers: {"Access-Control-Allow-Origin": "*" }
+  };
+  return callback(null, response);
+}
