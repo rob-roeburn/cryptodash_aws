@@ -18,7 +18,7 @@ exports.handler = function(event, context, callback){
   scanObjectPromise.then((data) => {
     let list=data.Items;
     list.sort((a, b) => (a.tickerId > b.tickerId) ? 1 : -1);
-    data.Items[0].cmcCacheData.quote.USD.price=(data.Items[0].cmcCacheData.quote.USD.price)*(1-(-0.00625+(Math.random()/100)*1.25));
+    data.Items[0].cmcCacheData.quote.USD.price=data.Items[0].cmcCacheData.quote.USD.price+(data.Items[0].cmcCacheData.quote.USD.price)*(((Math.random()*0.1)-0.05));
     let newparams = {
       TableName:'cmcCache',
       Key:{ 'tickerId': parseInt(data.Items[0].tickerId, 10) },
@@ -34,7 +34,6 @@ exports.handler = function(event, context, callback){
           statusCode: 200,
           headers: {"Access-Control-Allow-Origin": "*" }
         };
-        return callback("456");
       }
     });
   }).catch((err) => {
